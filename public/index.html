@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<title>ধনী হবার মজার খেলা</title>
+<meta name="theme-color" content="#0d1b1e" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+<!-- ================= HOME SCREEN ================= -->
+<section id="screen-home" class="screen screen-home active">
+  <div class="home-bg">
+    <div class="floating-die die-a">⚄</div>
+    <div class="floating-die die-b">⚂</div>
+    <div class="floating-die die-c">⚅</div>
+  </div>
+
+  <div class="home-card glass">
+    <div class="logo-wrap">
+      <h1 class="logo-title">ধনী হবার<br/><span>মজার খেলা</span></h1>
+      <p class="logo-sub">সিলেট থেকে গুলশান — সম্পত্তি কিনুন, ভাড়া তুলুন, ধনী হোন।</p>
+    </div>
+
+    <div class="home-actions">
+      <button id="btn-create" class="btn btn-primary btn-lg">🎲 রুম তৈরি করুন</button>
+      <button id="btn-join" class="btn btn-secondary btn-lg">🔑 রুমে যোগ দিন</button>
+    </div>
+
+    <div class="home-utility-row">
+      <button id="btn-howtoplay" class="icon-btn" title="খেলার নিয়ম">📖 নিয়ম</button>
+      <button id="btn-sound" class="icon-btn" title="শব্দ চালু/বন্ধ">🔊</button>
+      <button id="btn-darkmode" class="icon-btn" title="থিম">🌗</button>
+    </div>
+  </div>
+
+  <!-- Player setup panel (shown for both create & join) -->
+  <div id="panel-setup" class="modal-overlay hidden">
+    <div class="modal glass">
+      <h2 id="setup-title">খেলোয়াড়ের তথ্য</h2>
+      <div id="join-code-row" class="field hidden">
+        <label>রুম কোড</label>
+        <input id="input-room-code" maxlength="6" placeholder="যেমন: AB3XZ9" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>আপনার নাম</label>
+        <input id="input-name" maxlength="16" placeholder="নাম লিখুন" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>টোকেন বেছে নিন</label>
+        <div id="token-picker" class="token-picker"></div>
+      </div>
+      <div class="field">
+        <label>রঙ বেছে নিন</label>
+        <div id="color-picker" class="color-picker"></div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-setup-cancel" class="btn btn-ghost">বাতিল</button>
+        <button id="btn-setup-confirm" class="btn btn-primary">এগিয়ে যান →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to play -->
+  <div id="panel-howto" class="modal-overlay hidden">
+    <div class="modal glass modal-scroll">
+      <h2>খেলার নিয়ম</h2>
+      <ul class="howto-list">
+        <li>প্রতিটি খেলোয়াড় ৳২৮০০ নিয়ে "যাত্রা শুরু" থেকে খেলা শুরু করে।</li>
+        <li>পালাক্রমে দুইটি ছক্কা চেলে গুটি এগিয়ে নিন। ডাবল উঠলে আবার চালার সুযোগ পাবেন — কিন্তু পরপর ৩ বার ডাবল উঠলে সরাসরি জেলে যেতে হবে।</li>
+        <li>"যাত্রা শুরু" ঘর অতিক্রম করলে ব্যাংক থেকে ৳২০০ বোনাস পাবেন।</li>
+        <li>মালিকানাহীন সম্পত্তিতে থামলে কিনতে পারবেন, না চাইলে নিলাম শুরু হবে।</li>
+        <li>এক রঙের সব সম্পত্তির মালিক হলে দ্বিগুণ ভাড়া আদায় করা যায় এবং বাড়ি/হোটেল তৈরি করা যায়।</li>
+        <li>রেলস্টেশন যত বেশি একজনের থাকবে, ভাড়া তত বাড়বে। বিদ্যুৎ/পানি সুবিধার ভাড়া ছক্কার সংখ্যার উপর নির্ভর করে।</li>
+        <li>টাকার প্রয়োজনে সম্পত্তি বন্ধক রাখা যায়, কিন্তু বন্ধক থাকা অবস্থায় ভাড়া আদায় করা যায় না।</li>
+        <li>জেল থেকে বের হতে: ৳৫০ জরিমানা দিন, ডাবল তুলুন, অথবা মুক্তির কার্ড ব্যবহার করুন।</li>
+        <li>ঋণ পরিশোধ করতে না পারলে সম্পত্তি বিক্রি/বন্ধক রাখুন। তাতেও না হলে দেউলিয়া ঘোষিত হবেন এবং খেলা থেকে বাদ পড়বেন।</li>
+        <li>শেষ পর্যন্ত টিকে থাকা একমাত্র খেলোয়াড়ই বিজয়ী।</li>
+      </ul>
+      <div class="modal-actions">
+        <button id="btn-howto-close" class="btn btn-primary">বুঝেছি</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LOBBY SCREEN ================= -->
+<section id="screen-lobby" class="screen screen-lobby">
+  <div class="lobby-card glass">
+    <div class="lobby-header">
+      <div>
+        <div class="lobby-label">রুম কোড</div>
+        <div id="lobby-room-code" class="lobby-code">——————</div>
+      </div>
+      <button id="btn-copy-code" class="btn btn-ghost btn-sm">কোড কপি করুন</button>
+      <button id="btn-leave-lobby" class="btn btn-ghost btn-sm">রুম ত্যাগ করুন</button>
+    </div>
+
+    <div class="lobby-settings" id="host-settings">
+      <label>খেলোয়াড় সংখ্যা:</label>
+      <select id="select-max-players">
+        <option value="2">২</option>
+        <option value="3">৩</option>
+        <option value="4" selected>৪</option>
+        <option value="5">৫</option>
+        <option value="6">৬</option>
+      </select>
+    </div>
+
+    <div id="lobby-players" class="lobby-players"></div>
+
+    <div class="lobby-actions">
+      <button id="btn-ready" class="btn btn-secondary btn-lg">✅ প্রস্তুত</button>
+      <button id="btn-start-game" class="btn btn-primary btn-lg hidden">🚀 খেলা শুরু করুন</button>
+    </div>
+    <p class="lobby-hint">সবাই "প্রস্তুত" চাপলে হোস্ট খেলা শুরু করতে পারবেন।</p>
+  </div>
+</section>
+
+<!-- ================= GAME SCREEN ================= -->
+<section id="screen-game" class="screen screen-game">
+  <div class="game-topbar">
+    <div id="turn-indicator" class="turn-indicator">—</div>
+    <div class="game-topbar-actions">
+      <button id="btn-toggle-chat" class="icon-btn">💬</button>
+      <button id="btn-toggle-sound-g" class="icon-btn">🔊</button>
+      <button id="btn-toggle-dark-g" class="icon-btn">🌗</button>
+    </div>
+  </div>
+
+  <div class="game-layout">
+    <div class="board-wrap">
+      <div id="board" class="board"></div>
+    </div>
+
+    <aside id="side-panel" class="side-panel">
+      <div class="side-tabs">
+        <button class="side-tab active" data-tab="players">খেলোয়াড়</button>
+        <button class="side-tab" data-tab="log">লগ</button>
+        <button class="side-tab" data-tab="chat">চ্যাট</button>
+      </div>
+      <div id="tab-players" class="side-tab-content active">
+        <div id="player-cards"></div>
+      </div>
+      <div id="tab-log" class="side-tab-content">
+        <div id="game-log" class="game-log"></div>
+      </div>
+      <div id="tab-chat" class="side-tab-content">
+        <div id="chat-log" class="chat-log"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" placeholder="মেসেজ লিখুন…" maxlength="300" />
+          <button id="btn-chat-send" class="btn btn-primary btn-sm">পাঠান</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="game-controls">
+    <button id="btn-roll" class="btn btn-primary btn-lg">🎲 ছক্কা চালুন</button>
+    <button id="btn-my-properties" class="btn btn-secondary">🏠 আমার সম্পত্তি</button>
+    <button id="btn-trade" class="btn btn-secondary">🔁 ট্রেড</button>
+    <button id="btn-end-turn" class="btn btn-ghost">⏭ পালা শেষ করুন</button>
+  </div>
+
+  <div id="dice-display" class="dice-display hidden">
+    <div class="die-face" id="die-1">⚀</div>
+    <div class="die-face" id="die-2">⚀</div>
+  </div>
+</section>
+
+<!-- ================= MODALS (game) ================= -->
+<div id="modal-buy" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2 id="buy-tile-name">—</h2>
+    <p id="buy-tile-info">—</p>
+    <div class="modal-actions">
+      <button id="btn-decline-buy" class="btn btn-ghost">নিলামে দিন</button>
+      <button id="btn-confirm-buy" class="btn btn-primary">কিনুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-auction" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2>🔨 নিলাম: <span id="auction-tile-name">—</span></h2>
+    <p>সর্বোচ্চ বিড: <span id="auction-highest">৳০</span> (<span id="auction-highest-bidder">কেউ না</span>)</p>
+    <p class="countdown">⏱ <span id="auction-timer">১৫</span>s</p>
+    <div class="field">
+      <input id="auction-bid-input" type="number" min="1" placeholder="আপনার বিড লিখুন" />
+    </div>
+    <div class="modal-actions">
+      <button id="btn-auction-pass" class="btn btn-ghost">পাস</button>
+      <button id="btn-auction-bid" class="btn btn-primary">বিড করুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-jail" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2>🚔 আপনি জেলে আছেন</h2>
+    <p>জেল থেকে বের হতে একটি উপায় বেছে নিন, অথবা ছক্কা চেলে ডাবল ওঠার চেষ্টা করুন।</p>
+    <div class="modal-actions modal-actions-col">
+      <button id="btn-jail-pay" class="btn btn-secondary">৳৫০ জরিমানা দিন</button>
+      <button id="btn-jail-card" class="btn btn-secondary">মুক্তির কার্ড ব্যবহার করুন</button>
+      <button id="btn-jail-roll" class="btn btn-primary">ছক্কা চালুন (ডাবলের চেষ্টা)</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-properties" class="modal-overlay hidden">
+  <div class="modal glass modal-scroll">
+    <h2>🏠 আমার সম্পত্তি</h2>
+    <div id="my-properties-list"></div>
+    <div class="modal-actions">
+      <button id="btn-close-properties" class="btn btn-primary">বন্ধ করুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-trade" class="modal-overlay hidden">
+  <div class="modal glass modal-scroll">
+    <h2>🔁 ট্রেড প্রস্তাব</h2>
+    <div class="field">
+      <label>কার সাথে ট্রেড করবেন?</label>
+      <select id="trade-target"></select>
+    </div>
+    <div class="trade-grid">
+      <div>
+        <h3>আপনি দিচ্ছেন</h3>
+        <label>নগদ টাকা</label>
+        <input id="trade-my-cash" type="number" min="0" value="0" />
+        <label>সম্পত্তি</label>
+        <div id="trade-my-properties" class="trade-properties"></div>
+      </div>
+      <div>
+        <h3>আপনি পাচ্ছেন</h3>
+        <label>নগদ টাকা</label>
+        <input id="trade-their-cash" type="number" min="0" value="0" />
+        <label>সম্পত্তি</label>
+        <div id="trade-their-properties" class="trade-properties"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-trade-cancel" class="btn btn-ghost">বাতিল</button>
+      <button id="btn-trade-send" class="btn btn-primary">প্রস্তাব পাঠান</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-trade-incoming" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2>🔁 ট্রেড প্রস্তাব এসেছে</h2>
+    <div id="trade-incoming-detail"></div>
+    <div class="modal-actions">
+      <button id="btn-trade-reject" class="btn btn-ghost">প্রত্যাখ্যান</button>
+      <button id="btn-trade-accept" class="btn btn-primary">গ্রহণ করুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-bankrupt" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2>⚠️ তহবিল সংকট</h2>
+    <p id="bankrupt-info">আপনার হাতে পর্যাপ্ত টাকা নেই। সম্পত্তি বন্ধক রেখে বা বাড়ি বিক্রি করে টাকা জোগাড় করুন, অথবা দেউলিয়া ঘোষণা করুন।</p>
+    <div class="modal-actions">
+      <button id="btn-open-properties-from-bankrupt" class="btn btn-secondary">সম্পত্তি দেখুন</button>
+      <button id="btn-declare-bankrupt" class="btn btn-ghost">দেউলিয়া ঘোষণা করুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-winner" class="modal-overlay hidden">
+  <div class="modal glass confetti-modal">
+    <h2>🏆 <span id="winner-name">—</span> জয়ী হয়েছেন!</h2>
+    <p>খেলা শেষ। ধন্যবাদ খেলার জন্য!</p>
+    <div class="modal-actions">
+      <button id="btn-back-home" class="btn btn-primary">হোমে ফিরুন</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/board-data.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>
