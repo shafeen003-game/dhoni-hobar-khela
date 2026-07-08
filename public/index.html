@@ -39,33 +39,6 @@
     </div>
   </div>
 
-  <!-- Player setup panel (shown for both create & join) -->
-  <div id="panel-setup" class="modal-overlay hidden">
-    <div class="modal glass">
-      <h2 id="setup-title">খেলোয়াড়ের তথ্য</h2>
-      <div id="join-code-row" class="field hidden">
-        <label>রুম কোড</label>
-        <input id="input-room-code" maxlength="6" placeholder="যেমন: AB3XZ9" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label>আপনার নাম</label>
-        <input id="input-name" maxlength="16" placeholder="নাম লিখুন" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label>টোকেন বেছে নিন</label>
-        <div id="token-picker" class="token-picker"></div>
-      </div>
-      <div class="field">
-        <label>রঙ বেছে নিন</label>
-        <div id="color-picker" class="color-picker"></div>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-setup-cancel" class="btn btn-ghost">বাতিল</button>
-        <button id="btn-setup-confirm" class="btn btn-primary">এগিয়ে যান →</button>
-      </div>
-    </div>
-  </div>
-
   <!-- How to play -->
   <div id="panel-howto" class="modal-overlay hidden">
     <div class="modal glass modal-scroll">
@@ -88,6 +61,35 @@
     </div>
   </div>
 </section>
+
+<!-- Player setup panel — used for creating/joining a room, AND for adding an
+     extra local (pass-and-play) player from the lobby, so it lives outside
+     any single screen section and can be shown from any of them. -->
+<div id="panel-setup" class="modal-overlay hidden">
+  <div class="modal glass">
+    <h2 id="setup-title">খেলোয়াড়ের তথ্য</h2>
+    <div id="join-code-row" class="field hidden">
+      <label>রুম কোড</label>
+      <input id="input-room-code" maxlength="6" placeholder="যেমন: AB3XZ9" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>আপনার নাম</label>
+      <input id="input-name" maxlength="16" placeholder="নাম লিখুন" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>টোকেন বেছে নিন</label>
+      <div id="token-picker" class="token-picker"></div>
+    </div>
+    <div class="field">
+      <label>রঙ বেছে নিন</label>
+      <div id="color-picker" class="color-picker"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-setup-cancel" class="btn btn-ghost">বাতিল</button>
+      <button id="btn-setup-confirm" class="btn btn-primary">এগিয়ে যান →</button>
+    </div>
+  </div>
+</div>
 
 <!-- ================= LOBBY SCREEN ================= -->
 <section id="screen-lobby" class="screen screen-lobby">
@@ -115,23 +117,29 @@
     <div id="lobby-players" class="lobby-players"></div>
 
     <div class="lobby-actions">
+      <button id="btn-add-local-player" class="btn btn-ghost btn-lg">📱 এই ডিভাইসে আরও খেলোয়াড় যোগ করুন</button>
       <button id="btn-ready" class="btn btn-secondary btn-lg">✅ প্রস্তুত</button>
       <button id="btn-start-game" class="btn btn-primary btn-lg hidden">🚀 খেলা শুরু করুন</button>
     </div>
-    <p class="lobby-hint">সবাই "প্রস্তুত" চাপলে হোস্ট খেলা শুরু করতে পারবেন।</p>
+    <p class="lobby-hint">সবাই "প্রস্তুত" চাপলে হোস্ট খেলা শুরু করতে পারবেন। একই ফোনে একাধিক বন্ধু খেললে, "এই ডিভাইসে আরও খেলোয়াড় যোগ করুন" চেপে সবাইকে একে একে যোগ করুন — খেলার সময় পালা অনুযায়ী ফোনটি হাতে হাতে দিতে বলা হবে।</p>
   </div>
 </section>
 
 <!-- ================= GAME SCREEN ================= -->
 <section id="screen-game" class="screen screen-game">
   <div class="game-topbar">
-    <div id="turn-indicator" class="turn-indicator">—</div>
+    <div class="turn-indicator-wrap">
+      <div id="turn-indicator" class="turn-indicator">—</div>
+      <div id="turn-location" class="turn-location"></div>
+    </div>
     <div class="game-topbar-actions">
       <button id="btn-toggle-chat" class="icon-btn">💬</button>
       <button id="btn-toggle-sound-g" class="icon-btn">🔊</button>
       <button id="btn-toggle-dark-g" class="icon-btn">🌗</button>
     </div>
   </div>
+
+  <div id="seat-switcher" class="seat-switcher hidden"></div>
 
   <div class="game-layout">
     <div class="board-wrap">
@@ -141,11 +149,15 @@
     <aside id="side-panel" class="side-panel">
       <div class="side-tabs">
         <button class="side-tab active" data-tab="players">খেলোয়াড়</button>
+        <button class="side-tab" data-tab="properties">সম্পত্তি</button>
         <button class="side-tab" data-tab="log">লগ</button>
         <button class="side-tab" data-tab="chat">চ্যাট</button>
       </div>
       <div id="tab-players" class="side-tab-content active">
         <div id="player-cards"></div>
+      </div>
+      <div id="tab-properties" class="side-tab-content">
+        <div id="all-properties-list"></div>
       </div>
       <div id="tab-log" class="side-tab-content">
         <div id="game-log" class="game-log"></div>
@@ -168,9 +180,17 @@
   </div>
 
   <div id="dice-display" class="dice-display hidden">
-    <div class="die-face" id="die-1">⚀</div>
-    <div class="die-face" id="die-2">⚀</div>
+    <div class="dice-display-inner">
+      <div class="dice-faces">
+        <div class="die-face" id="die-1">⚀</div>
+        <div class="die-face" id="die-2">⚀</div>
+      </div>
+      <div id="dice-roller-name" class="dice-roller-name"></div>
+      <div id="dice-total" class="dice-total"></div>
+    </div>
   </div>
+
+  <div id="card-draw-popup" class="card-draw-popup hidden"></div>
 </section>
 
 <!-- ================= MODALS (game) ================= -->
@@ -214,10 +234,19 @@
 
 <div id="modal-properties" class="modal-overlay hidden">
   <div class="modal glass modal-scroll">
-    <h2>🏠 আমার সম্পত্তি</h2>
+    <h2 id="modal-properties-title">🏠 আমার সম্পত্তি</h2>
     <div id="my-properties-list"></div>
     <div class="modal-actions">
       <button id="btn-close-properties" class="btn btn-primary">বন্ধ করুন</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-tile-info" class="modal-overlay hidden">
+  <div class="modal glass modal-scroll">
+    <div id="tile-info-body"></div>
+    <div class="modal-actions">
+      <button id="btn-close-tile-info" class="btn btn-primary">বন্ধ করুন</button>
     </div>
   </div>
 </div>
