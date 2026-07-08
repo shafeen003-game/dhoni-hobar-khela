@@ -29,9 +29,28 @@ function broadcast(roomCode) {
   io.to(roomCode).emit("state", room.getPublicState());
 }
 
+// ----------------------------------------------------------------------------
+// "এক ফোনে একাধিক খেলোয়াড়" (multiple players on one phone / pass-and-play):
+// a single socket connection can hold more than one seat in the same room —
+// e.g. three friends sharing one phone, each picking a name/token/color, and
+// passing the phone around on their turn. Every seat the socket has created
+// or rejoined is tracked in claimedPlayerIds; any action can be performed
+// "as" any of those seats by sending __asPlayerId, which the server verifies
+// before touching game state.
+// ----------------------------------------------------------------------------
+function actingPlayerId(socket, payload) {
+  const requested = (payload && payload.__asPlayerId) || socket.data.playerId;
+  if (!requested) throw new Error("কোনো সিট পাওয়া যায়নি");
+  if (!socket.data.claimedPlayerIds || !socket.data.claimedPlayerIds.has(requested)) {
+    throw new Error("এই সিটটি এই ডিভাইস থেকে নিয়ন্ত্রিত নয়");
+  }
+  return requested;
+}
+
 io.on("connection", (socket) => {
   socket.data.roomCode = null;
   socket.data.playerId = null;
+  socket.data.claimedPlayerIds = new Set();
 
   socket.on("createRoom", ({ name, avatar, token, color }, cb) => {
     safe(socket, () => {
@@ -41,6 +60,7 @@ io.on("connection", (socket) => {
       socket.join(room.code);
       socket.data.roomCode = room.code;
       socket.data.playerId = playerId;
+      socket.data.claimedPlayerIds.add(playerId);
       cb && cb({ ok: true, roomCode: room.code, playerId });
       broadcast(room.code);
     });
@@ -57,12 +77,30 @@ io.on("connection", (socket) => {
       socket.join(room.code);
       socket.data.roomCode = room.code;
       socket.data.playerId = playerId;
+      socket.data.claimedPlayerIds.add(playerId);
       cb && cb({ ok: true, roomCode: room.code, playerId });
       broadcast(room.code);
     });
   });
 
-  socket.on("rejoinRoom", ({ roomCode, playerId }, cb) => {
+  // Add another local seat to the room this socket is already in — used for
+  // "pass and play" on one phone. Anyone already seated in a not-yet-started
+  // room can add more local players (up to maxPlayers).
+  socket.on("addLocalSeat", ({ name, avatar, token, color }, cb) => {
+    safe(socket, () => {
+      const room = rooms.getRoom(socket.data.roomCode);
+      if (!room) throw new Error("আগে একটি রুমে যোগ দিন");
+      if (room.started) throw new Error("খেলা ইতিমধ্যে শুরু হয়ে গেছে");
+      if (room.players.length >= room.maxPlayers) throw new Error("রুম পূর্ণ হয়ে গেছে");
+      const playerId = nanoid(10);
+      room.addPlayer({ playerId, name, avatar, token, color, socketId: socket.id });
+      socket.data.claimedPlayerIds.add(playerId);
+      cb && cb({ ok: true, roomCode: room.code, playerId });
+      broadcast(room.code);
+    });
+  });
+
+  socket.on("rejoinRoom", ({ roomCode, playerId, extraPlayerIds }, cb) => {
     safe(socket, () => {
       const room = rooms.getRoom(roomCode);
       if (!room) throw new Error("রুম আর নেই");
@@ -71,15 +109,21 @@ io.on("connection", (socket) => {
       socket.join(room.code);
       socket.data.roomCode = room.code;
       socket.data.playerId = playerId;
+      socket.data.claimedPlayerIds.add(playerId);
+      // Re-claim any other local (pass-and-play) seats this device held.
+      (extraPlayerIds || []).forEach((pid) => {
+        if (room.reconnectPlayer(pid, socket.id)) socket.data.claimedPlayerIds.add(pid);
+      });
       cb && cb({ ok: true });
       broadcast(room.code);
     });
   });
 
-  socket.on("toggleReady", () => {
+  socket.on("toggleReady", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      const player = room.getPlayer(socket.data.playerId);
+      const pid = actingPlayerId(socket, payload);
+      const player = room.getPlayer(pid);
       player.ready = !player.ready;
       broadcast(room.code);
     });
@@ -104,133 +148,135 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("rollDice", () => {
+  socket.on("rollDice", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.rollDice(socket.data.playerId);
+      room.rollDice(actingPlayerId(socket, payload));
       broadcast(room.code);
     });
   });
 
-  socket.on("buyProperty", (tileId) => {
+  socket.on("buyProperty", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.buyProperty(socket.data.playerId, tileId);
+      room.buyProperty(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("declineProperty", (tileId) => {
+  socket.on("declineProperty", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.declineProperty(socket.data.playerId, tileId);
+      room.declineProperty(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("placeBid", (amount) => {
+  socket.on("placeBid", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.placeBid(socket.data.playerId, amount);
+      room.placeBid(actingPlayerId(socket, payload), payload.amount);
       broadcast(room.code);
     });
   });
 
-  socket.on("passAuction", () => {
+  socket.on("passAuction", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.passAuction(socket.data.playerId);
+      room.passAuction(actingPlayerId(socket, payload));
       broadcast(room.code);
     });
   });
 
-  socket.on("payJailFine", () => {
+  socket.on("payJailFine", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.payJailFine(socket.data.playerId);
+      room.payJailFine(actingPlayerId(socket, payload));
       broadcast(room.code);
     });
   });
 
-  socket.on("useJailCard", () => {
+  socket.on("useJailCard", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.useJailCard(socket.data.playerId);
+      room.useJailCard(actingPlayerId(socket, payload));
       broadcast(room.code);
     });
   });
 
-  socket.on("mortgage", (tileId) => {
+  socket.on("mortgage", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.mortgageProperty(socket.data.playerId, tileId);
+      room.mortgageProperty(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("unmortgage", (tileId) => {
+  socket.on("unmortgage", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.unmortgageProperty(socket.data.playerId, tileId);
+      room.unmortgageProperty(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("buildHouse", (tileId) => {
+  socket.on("buildHouse", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.buildHouse(socket.data.playerId, tileId);
+      room.buildHouse(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("sellHouse", (tileId) => {
+  socket.on("sellHouse", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.sellHouse(socket.data.playerId, tileId);
+      room.sellHouse(actingPlayerId(socket, payload), payload.tileId);
       broadcast(room.code);
     });
   });
 
-  socket.on("proposeTrade", ({ toId, offer }) => {
+  socket.on("proposeTrade", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.proposeTrade(socket.data.playerId, toId, offer);
+      room.proposeTrade(actingPlayerId(socket, payload), payload.toId, payload.offer);
       broadcast(room.code);
     });
   });
 
-  socket.on("respondTrade", (accept) => {
+  socket.on("respondTrade", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.respondTrade(socket.data.playerId, accept);
+      room.respondTrade(actingPlayerId(socket, payload), payload.accept);
       broadcast(room.code);
     });
   });
 
-  socket.on("declareBankrupt", () => {
+  socket.on("declareBankrupt", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      const player = room.getPlayer(socket.data.playerId);
+      const pid = actingPlayerId(socket, payload);
+      const player = room.getPlayer(pid);
       const creditorId = room.turn.pendingAction && room.turn.pendingAction.creditorId;
       room.declareBankrupt(player, creditorId ? room.getPlayer(creditorId) : null);
       broadcast(room.code);
     });
   });
 
-  socket.on("endTurn", () => {
+  socket.on("endTurn", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      room.endTurn(socket.data.playerId);
+      room.endTurn(actingPlayerId(socket, payload));
       broadcast(room.code);
     });
   });
 
-  socket.on("sendChat", (text) => {
+  socket.on("sendChat", (payload) => {
     safe(socket, () => {
       const room = rooms.getRoom(socket.data.roomCode);
-      const player = room.getPlayer(socket.data.playerId);
-      const clean = String(text || "").slice(0, 300);
+      const pid = actingPlayerId(socket, payload);
+      const player = room.getPlayer(pid);
+      const clean = String((payload && payload.text) || "").slice(0, 300);
       if (!clean.trim()) return;
       room.chatLog.push({ playerId: player.id, name: player.name, text: clean, ts: Date.now() });
       broadcast(room.code);
@@ -240,11 +286,16 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const room = rooms.getRoom(socket.data.roomCode);
     if (!room) return;
-    const player = room.getPlayer(socket.data.playerId);
-    if (player) player.connected = false;
-    if (!room.started) {
-      room.removePlayer(socket.data.playerId);
-    }
+    // Mark every seat this socket held (could be several, for pass-and-play)
+    // as disconnected, not just the primary one.
+    const idsToMark = socket.data.claimedPlayerIds && socket.data.claimedPlayerIds.size
+      ? Array.from(socket.data.claimedPlayerIds)
+      : [socket.data.playerId];
+    idsToMark.forEach((pid) => {
+      const player = room.getPlayer(pid);
+      if (player) player.connected = false;
+      if (!room.started) room.removePlayer(pid);
+    });
     broadcast(room.code);
   });
 });
