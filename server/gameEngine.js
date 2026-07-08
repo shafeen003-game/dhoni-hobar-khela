@@ -41,6 +41,7 @@ class Room {
     this.turn = { hasRolled: false, doublesCount: 0, lastDice: null, pendingAction: null };
     this.auction = null; // { tileId, highestBid, highestBidderId, endsAt, biddersLeft }
     this.pendingTrade = null; // { id, fromId, toId, offer, status }
+    this.lastCardDraw = null; // { id, playerId, playerName, deck, text } — broadcast so every device sees the draw
     this.chatLog = [];
     this.log = []; // game event log (system messages)
     this.createdAt = Date.now();
@@ -340,6 +341,16 @@ class Room {
     const card = deck.shift();
     deck.push(card); // recycle to bottom
     this.pushLog(`${player.name} একটি ${deckName === "chance" ? "সুযোগ" : "ভাগ্য পরীক্ষা"} কার্ড তুললেন: ${card.text}`);
+    // Every player's screen should see the card that was drawn, not just the
+    // log line — this powers a shared popup animation on all connected clients.
+    this.lastCardDraw = {
+      id: nanoid(8),
+      playerId: player.id,
+      playerName: player.name,
+      deck: deckName,
+      text: card.text,
+      ts: Date.now()
+    };
     this.applyCardEffect(player, card.effect);
     return card;
   }
@@ -613,6 +624,7 @@ class Room {
       turn: this.turn,
       auction: this.auction,
       pendingTrade: this.pendingTrade,
+      lastCardDraw: this.lastCardDraw,
       log: this.log.slice(-40),
       chat: this.chatLog.slice(-100)
     };
